@@ -1,56 +1,67 @@
-TARGET=scheme
-ROOTDIR=sfsn
-DIRNAME=`basename $(PWD)`
-CC=`which gcc`
-LD=`which gcc`
-RM=`which rm` -f
+##############################
+## THIS IS A BASIC MAKEFILE ##
+##############################
 
-SRCDIR=src
-INCDIR=include
-TESTDIR=testing
+## Commands and compile settings ##
 
-GARBAGE=*~ $(SRCDIR)/*~ $(INCDIR)/*~ $(TESTDIR)/*~
+FMT = clang-format -i -style=file
+CXX = g++
+CXXFLAGS = -std=c++11 -Wall -lm -lpng#-Werror
+# Uncomment the following to compile in debug mode with no optimizations
+# (for instance, this is useful to better track memory leaks):
+# DFLAGS = -g -O0
+IPATHS = -I.
+LPATHS = -L.
+# LDFLAGS =
 
-INCLUDE=-I$(INCDIR)
 
-# Pour activer les sorties INFO_MSG, ajouter -DVERBOSE aux CFLAGS
-CFLAGS=-Wall -ansi $(INCLUDE)
-LFLAGS=-lm
+## Files and resources ##
 
-CFLAGS_DBG=$(CFLAGS) -g -DDEBUG -Wall
-CFLAGS_RLS=$(CFLAGS)
+HPP_FILES := $(shell find . -type f -name "*.hpp")
+CPP_FILES := $(shell find . -type f -name "*.cpp")
+OBJ_FILES := $(CPP_FILES:%.cpp=%.o)
 
-SRC=$(wildcard $(SRCDIR)/*.c)
 
-OBJ_DBG=$(SRC:.c=.dbg)
-OBJ_RLS=$(SRC:.c=.rls)
+## Phony targets ##
 
-all :
-	@echo "in " $(DIRNAME)
+.PHONY: all format compile run check clean
+
+
+## Entry point ##
+
+all: run
+
+
+## Targets ##
+
+format:
+	@echo "$@ ..."
+	$(foreach f,$(HPP_FILES),$(FMT) $(f) ;)
+	$(foreach f,$(CPP_FILES),$(FMT) $(f) ;)
+
+compile: run.exe
+
+$(OBJ_FILES): %.o: %.cpp
+	$(CXX) $(CXXFLAGS) $(DFLAGS) $(IPATHS) -o $@ -c $<
+
+run.exe: $(OBJ_FILES)
+	$(CXX) $(CXXFLAGS) $(DFLAGS) $(IPATHS) $(LPATHS) $(OBJ_FILES) -o $@ $(LDFLAGS)
+
+run: compile
+	@echo "$@ ..."
 	@echo ""
-	@echo "Usage:"
+	@./run.exe
 	@echo ""
-	@echo "make debug   => build DEBUG   version"
-	@echo "make release => build RELEASE version"
-	@echo "make clean   => clean everything"
-	@echo "make tarball => produce archive"
 
-debug   : $(OBJ_DBG)
-	$(LD) $^ $(LFLAGS) -o $(TARGET)
+check: compile
+	@echo "$@ ..."
+	@echo ""
+	valgrind ./run.exe
+	@echo ""
 
-release : $(OBJ_RLS)
-	$(LD) $^ $(LFLAGS) -o $(TARGET)
-
-%.dbg : %.c
-	$(CC) $< $(CFLAGS_DBG) -c -o $(basename $<).dbg
-
-%.rls : %.c
-	$(CC) $< $(CFLAGS_RLS) -c -o $(basename $<).rls
-
-clean :
-	$(RM) $(TARGET) $(SRCDIR)/*.orig $(SRCDIR)/*.dbg $(SRCDIR)/*.rls $(GARBAGE) scheme-`whoami`-*.tgz
-
-tarball :
-	make clean
-	cd .. && tar -czvf scheme-`whoami`-`date +%d-%m-%H-%M`.tgz $(DIRNAME) && cd $(DIRNAME) && mv ../scheme-`whoami`-*.tgz .
-
+clean:
+	@echo "$@ ..."
+	$(shell find . -type f -name "*.exe" -delete)
+	$(shell find . -type f -name "*.o" -delete)
+	$(shell find . -type f -name "*.a" -delete)
+$(shell find . -type f -name "*.so" -delete)
